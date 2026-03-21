@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
-import { google, drive_v3 } from 'googleapis';
+import { google, drive_v3, docs_v1 } from 'googleapis';
 
 @Injectable()
 export class DriveService {
@@ -93,5 +93,81 @@ export class DriveService {
     });
 
     return doc.data.id as string;
+  }
+
+  /**
+   * Obtiene el cliente de Google Docs
+   */
+  async getDocsClient(tenantId: string): Promise<docs_v1.Docs> {
+    const db = this.firebaseService.getFirestore();
+    const doc = await db.collection('tenants').doc(tenantId).get();
+    const data = doc.data();
+    const { access_token, refresh_token } = data?.googleTokens;
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI
+    );
+    oauth2Client.setCredentials({ access_token, refresh_token });
+    return google.docs({ version: 'v1', auth: oauth2Client });
+  }
+
+  /**
+   * Escribe los datos de la Orden de Trabajo en el Google Doc correspondiente
+   */
+  async populateOrderDocument(tenantId: string, docId: string, detalles: {
+    id: string; clienteId: string; clienteNombre?: string;
+    tipoInspeccion?: string; descripcion?: string;
+    direccion?: string; contacto?: string; telefono?: string;
+    fechaProgramada?: string; inspectorEmail?: string;
+    ventanaHoraria?: string; observacionesLogisticas?: string;
+  }) {
+    const docs = await this.getDocsClient(tenantId);
+
+    const fecha = detalles.fechaProgramada
+      ? new Date(detalles.fechaProgramada + 'T00:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })
+      : 'Por definir';
+
+    const content = [
+      `ORDEN DE TRABAJO - ${detalles.id}`,
+      '',
+      '--- IDENTIFICACIÓN DEL CLIENTE ---',
+      `Cliente: ${detalles.clienteNombre || detalles.clienteId}  (${detalles.clienteId})`,
+      '',
+      '--- IDENTIFICACIÓN DE LA INSPECCIÓN ---',
+      `Código de Orden: ${detalles.id}`,
+      `Tipo de Inspección: ${detalles.tipoInspeccion || 'N/A'}`,
+      `Alcance: ${detalles.descripcion || 'N/A'}`,
+      '',
+      '--- UBICACIÓN Y CONTACTO ---',
+      `Dirección del Sitio: ${detalles.direccion || 'N/A'}`,
+      `Persona de Contacto: ${detalles.contacto || 'N/A'}`,
+      `Teléfono: ${detalles.telefono || 'N/A'}`,
+      '',
+      '--- PROGRAMACIÓN ---',
+      `Fecha Programada: ${fecha}`,
+      `Inspector Asignado: ${detalles.inspectorEmail || 'N/A'}`,
+      `Ventana Horaria: ${detalles.ventanaHoraria || 'N/A'}`,
+      '',
+      '--- LOGÍSTICA ---',
+      `Observaciones: ${detalles.observacionesLogisticas || 'Ninguna'}`,
+      '',
+      '--- FIRMAS ---',
+      'Inspector: ________________________________   Fecha: ___________',
+      '',
+      'Director Técnico: ________________________   Fecha: ___________',
+    ].join('\n');
+
+    await docs.documents.batchUpdate({
+      documentId: docId,
+      requestBody: {
+        requests: [
+          {
+            insertText: {
+              location: { index: 1 },
+              text: content,
+            },
+          },
+        ],
+      },
+    });
   }
 }

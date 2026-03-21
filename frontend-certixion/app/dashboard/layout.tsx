@@ -65,6 +65,7 @@ export default function DashboardLayout({
   const navLinks = [
     { name: "Inicio", href: "/dashboard", icon: "🏠", roles: ["admin", "operador", "inspector", "director"] },
     { name: "Clientes", href: "/dashboard/clientes", icon: "🏢", roles: ["admin", "operador"] },
+    { name: "Alcance", href: "/dashboard/alcances", icon: "📚", roles: ["admin"] },
     { name: "Órdenes de Trabajo", href: "/dashboard/ordenes", icon: "📋", roles: ["admin", "operador", "inspector", "director"] },
     { name: "Aprobaciones", href: "/dashboard/aprobaciones", icon: "✅", roles: ["admin", "director"] },
     { name: "Usuarios y Roles", href: "/dashboard/admin", icon: "⚙️", roles: ["admin"] },

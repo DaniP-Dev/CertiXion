@@ -1,5 +1,6 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { DatosCampoService } from './datos-campo.service';
+import type { DatosHermeticidad } from './datos-campo.service';
 
 @Controller('datos-campo')
 export class DatosCampoController {
@@ -12,5 +13,13 @@ export class DatosCampoController {
     @Body('datos') datos: any,
   ) {
     return this.datosCampoService.saveDatos(tenantId, ordenId, datos);
+  }
+
+  @Post('hermeticidad')
+  async generarHermeticidad(
+    @Body('tenantId') tenantId: string,
+    @Body('datos') datos: DatosHermeticidad,
+  ) {
+    return this.datosCampoService.generarInformeCampoHermeticidad(tenantId, datos);
   }
 }

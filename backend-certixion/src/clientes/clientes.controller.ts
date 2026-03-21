@@ -7,10 +7,14 @@ export class ClientesController {
 
   @Post()
   async createCliente(
-    @Body('tenantId') tenantId: string, 
-    @Body('nombre') nombre: string
+    @Body('tenantId') tenantId: string,
+    @Body('nombre') nombre: string,
+    @Body('nit') nit: string,
+    @Body('direccion') direccion: string,
+    @Body('contacto') contacto: string,
+    @Body('telefono') telefono: string,
   ) {
-    return this.clientesService.createCliente(tenantId, nombre);
+    return this.clientesService.createCliente(tenantId, nombre, { nit, direccion, contacto, telefono });
   }
 
   @Get()

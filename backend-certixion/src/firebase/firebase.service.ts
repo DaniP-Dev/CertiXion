@@ -24,6 +24,8 @@ export class FirebaseService implements OnModuleInit {
     }
 
     this.firestore = admin.firestore();
+    // Habilitar ignoreUndefinedProperties como medida de seguridad
+    this.firestore.settings({ ignoreUndefinedProperties: true });
   }
 
   getFirestore() {

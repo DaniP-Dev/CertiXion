@@ -2,32 +2,39 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
-
-const BACKEND_URL = "http://localhost:3000";
-const TENANT_ID = "danidevcol@gmail.com"; // Temporal: se obtiene del perfil del usuario
+import { BACKEND_URL, TENANT_ID } from "@/lib/api";
 
 interface Cliente {
   id: string;
   nombre: string;
+  nit?: string;
+  direccion?: string;
+  contacto?: string;
+  telefono?: string;
   createdAt: string;
   driveFolderId?: string;
+  documentosFolderId?: string;
 }
+
+const emptyForm = { nombre: "", nit: "", direccion: "", contacto: "", telefono: "" };
 
 export default function ClientesPage() {
   const { role } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const setField = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   const fetchClientes = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/clientes?tenantId=${TENANT_ID}`);
       const data = await res.json();
-      setClientes(data);
+      setClientes(Array.isArray(data) ? data : []);
     } catch {
       setErrorMsg("No se pudo conectar con el servidor.");
     } finally {
@@ -35,24 +42,22 @@ export default function ClientesPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchClientes();
-  }, [fetchClientes]);
+  useEffect(() => { fetchClientes(); }, [fetchClientes]);
 
   const handleCrearCliente = async () => {
-    if (!nuevoNombre.trim()) return;
+    if (!form.nombre.trim()) { setErrorMsg("El nombre es obligatorio."); return; }
     setIsSaving(true);
     setErrorMsg(null);
     try {
       const res = await fetch(`${BACKEND_URL}/clientes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId: TENANT_ID, nombre: nuevoNombre }),
+        body: JSON.stringify({ tenantId: TENANT_ID, ...form }),
       });
       if (!res.ok) throw new Error("Error al guardar el cliente.");
       setIsModalOpen(false);
-      setNuevoNombre("");
-      fetchClientes(); // Refresca la tabla
+      setForm(emptyForm);
+      fetchClientes();
     } catch (e: any) {
       setErrorMsg(e.message || "Error inesperado.");
     } finally {
@@ -65,17 +70,12 @@ export default function ClientesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Directorio de Clientes</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestiona los clientes de tu organización y sus inspecciones.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Gestiona los clientes y sus documentos de soporte.</p>
         </div>
         {(role === "admin" || role === "operador") && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            <span>📝</span>
-            Nuevo Cliente
+          <button onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
+            📝 Nuevo Cliente
           </button>
         )}
       </div>
@@ -89,37 +89,40 @@ export default function ClientesPage() {
           <div className="py-20 text-center text-gray-400">
             <p className="text-4xl">📂</p>
             <p className="mt-4 font-medium">Aún no hay clientes registrados.</p>
-            <p className="text-sm">Crea el primero con el botón de arriba.</p>
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">ID</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Empresa</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Fecha de Creación</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Empresa / NIT</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contacto</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Dirección</th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Drive</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {clientes.map((c) => (
                 <tr key={c.id} className="transition-colors hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4 font-mono text-sm font-semibold text-blue-700">{c.id}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{c.nombre}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {new Date(c.createdAt).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
+                  <td className="px-6 py-4 font-mono text-sm font-bold text-blue-700">{c.id}</td>
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-semibold text-gray-900">{c.nombre}</p>
+                    {c.nit && <p className="text-xs text-gray-400">NIT: {c.nit}</p>}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right">
-                    {c.driveFolderId ? (
-                      <a
-                        href={`https://drive.google.com/drive/folders/${c.driveFolderId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-blue-600 hover:text-blue-900"
-                      >
-                        Abrir en Drive →
-                      </a>
-                    ) : <span className="text-gray-400 text-sm">—</span>}
+                  <td className="px-6 py-4">
+                    <p className="text-sm text-gray-700">{c.contacto || "—"}</p>
+                    {c.telefono && <p className="text-xs text-gray-400">{c.telefono}</p>}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{c.direccion || "—"}</td>
+                  <td className="px-6 py-4 text-right space-x-3">
+                    {c.driveFolderId && (
+                      <a href={`https://drive.google.com/drive/folders/${c.driveFolderId}`} target="_blank" rel="noopener noreferrer"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-900">Expediente →</a>
+                    )}
+                    {c.documentosFolderId && (
+                      <a href={`https://drive.google.com/drive/folders/${c.documentosFolderId}`} target="_blank" rel="noopener noreferrer"
+                        className="text-sm font-medium text-green-600 hover:text-green-900">Docs →</a>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -128,39 +131,64 @@ export default function ClientesPage() {
         )}
       </div>
 
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900">Registrar Nuevo Cliente</h3>
-            <p className="mt-1 text-sm text-gray-500">Se creará automáticamente su carpeta en Google Drive.</p>
-            {errorMsg && (
-              <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{errorMsg}</p>
-            )}
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">Nombre de la Empresa</label>
-              <input
-                type="text"
-                value={nuevoNombre}
-                onChange={(e) => setNuevoNombre(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCrearCliente()}
-                placeholder="Ej. Ingeniería López S.A.S."
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoFocus
-              />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Registrar Cliente</h3>
+                <p className="text-xs text-gray-500">Esta info se pre-cargará automáticamente en cada orden.</p>
+              </div>
+              <button onClick={() => { setIsModalOpen(false); setErrorMsg(null); setForm(emptyForm); }}
+                className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100">✕</button>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => { setIsModalOpen(false); setNuevoNombre(""); setErrorMsg(null); }}
-                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-              >
+
+            <div className="space-y-4 p-6">
+              {errorMsg && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{errorMsg}</p>}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Nombre / Razón Social <span className="text-red-500">*</span></label>
+                  <input type="text" value={form.nombre} onChange={e => setField("nombre", e.target.value)} placeholder="Ej. Estación EDS Los Pinos"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">NIT</label>
+                  <input type="text" value={form.nit} onChange={e => setField("nit", e.target.value)} placeholder="900.123.456-7"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                  <input type="tel" value={form.telefono} onChange={e => setField("telefono", e.target.value)} placeholder="300 000 0000"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Dirección del Sitio</label>
+                  <input type="text" value={form.direccion} onChange={e => setField("direccion", e.target.value)} placeholder="Cll 123 # 45-67, Bogotá"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Persona de Contacto</label>
+                  <input type="text" value={form.contacto} onChange={e => setField("contacto", e.target.value)} placeholder="Nombre del administrador / gerente"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500">
+                <p>📁 Se creará automáticamente en Drive:</p>
+                <p className="mt-1 font-medium text-gray-700">Clientes → <span className="text-blue-700">{form.nombre || "Nombre de empresa"}</span> → Documentos</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button onClick={() => { setIsModalOpen(false); setErrorMsg(null); setForm(emptyForm); }}
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
                 Cancelar
               </button>
-              <button
-                onClick={handleCrearCliente}
-                disabled={isSaving || !nuevoNombre.trim()}
-                className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {isSaving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
+              <button onClick={handleCrearCliente} disabled={isSaving || !form.nombre.trim()}
+                className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {isSaving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                 {isSaving ? "Creando..." : "Guardar Cliente"}
               </button>
             </div>
