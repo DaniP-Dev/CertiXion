@@ -21,6 +21,7 @@ export class ClientesService {
       
       const tenantData = tenantDoc.data();
       let certixionFolderId = tenantData?.certixionFolderId;
+      let rootClientesFolderId = tenantData?.clientesFolderId;
       
       // 1. Asegurar que existe la carpeta raíz "CERTIXION" para el tenant
       if (!certixionFolderId) {
@@ -28,8 +29,14 @@ export class ClientesService {
         await tenantRef.update({ certixionFolderId });
       }
 
-      // 2. Crear estructura en Drive (Directamente dentro de la carpeta CERTIXION)
-      const clienteFolderId = await this.driveService.createFolder(tenantId, clienteName, certixionFolderId);
+      // 2. Asegurar que existe el Módulo "Clientes" dentro de "CERTIXION"
+      if (!rootClientesFolderId) {
+        rootClientesFolderId = await this.driveService.createFolder(tenantId, 'Clientes', certixionFolderId);
+        await tenantRef.update({ clientesFolderId: rootClientesFolderId });
+      }
+
+      // 3. Crear Estructura en Drive (Dentro de la carpeta del Módulo Clientes)
+      const clienteFolderId = await this.driveService.createFolder(tenantId, clienteName, rootClientesFolderId);
 
       // 2. Guardar cliente en Firestore
       // Auto-generación de ID CLI-001
