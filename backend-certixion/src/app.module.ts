@@ -6,6 +6,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { OrdenesModule } from './ordenes/ordenes.module';
 import { DatosCampoModule } from './datos-campo/datos-campo.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DatosCampoModule } from './datos-campo/datos-campo.module';
     ClientesModule,
     OrdenesModule,
     DatosCampoModule,
+    UsuariosModule,
   ],
 })
 export class AppModule {}

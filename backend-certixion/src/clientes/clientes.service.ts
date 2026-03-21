@@ -61,4 +61,15 @@ export class ClientesService {
       throw new InternalServerErrorException('Error al crear el cliente: ' + error.message);
     }
   }
+
+  async getClientes(tenantId: string) {
+    try {
+      const db = this.firebaseService.getFirestore();
+      const clientesRef = db.collection('tenants').doc(tenantId).collection('clientes');
+      const snapshot = await clientesRef.orderBy('createdAt', 'asc').get();
+      return snapshot.docs.map(doc => doc.data());
+    } catch (error) {
+      throw new InternalServerErrorException('Error al obtener clientes: ' + error.message);
+    }
+  }
 }

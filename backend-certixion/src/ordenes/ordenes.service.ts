@@ -67,4 +67,18 @@ export class OrdenesService {
     }
     return doc.data();
   }
+
+  async getOrdenes(tenantId: string, clienteId?: string) {
+    try {
+      const db = this.firebaseService.getFirestore();
+      let query: any = db.collection('tenants').doc(tenantId).collection('ordenes');
+      if (clienteId) {
+        query = query.where('clienteId', '==', clienteId);
+      }
+      const snapshot = await query.orderBy('createdAt', 'desc').get();
+      return snapshot.docs.map((doc: any) => doc.data());
+    } catch (error) {
+      throw new InternalServerErrorException('Error al obtener órdenes: ' + error.message);
+    }
+  }
 }

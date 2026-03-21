@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "../../lib/firebase";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -14,8 +16,7 @@ export default function LoginPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       console.log("Login exitoso:", result.user);
-      // Redirigir al dashboard próximamente
-      alert(`¡Bienvenido, ${result.user.displayName}!`);
+      router.push("/dashboard");
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Ocurrió un error al iniciar sesión.");

@@ -21,4 +21,12 @@ export class OrdenesController {
   ) {
     return this.ordenesService.getOrden(tenantId, id);
   }
+
+  @Get()
+  async getOrdenes(
+    @Query('tenantId') tenantId: string,
+    @Query('clienteId') clienteId?: string,
+  ) {
+    return this.ordenesService.getOrdenes(tenantId, clienteId);
+  }
 }
