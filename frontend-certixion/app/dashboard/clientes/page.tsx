@@ -8,7 +8,10 @@ interface Cliente {
   id: string;
   nombre: string;
   nit?: string;
-  direccion?: string;
+  ciudad?: string;
+  departamento?: string;
+  representanteLegal?: string;
+  email?: string;
   contacto?: string;
   telefono?: string;
   createdAt: string;
@@ -16,7 +19,16 @@ interface Cliente {
   documentosFolderId?: string;
 }
 
-const emptyForm = { nombre: "", nit: "", direccion: "", contacto: "", telefono: "" };
+const emptyForm = { 
+  nombre: "", 
+  nit: "", 
+  ciudad: "",
+  departamento: "",
+  representanteLegal: "",
+  email: "",
+  contacto: "", 
+  telefono: "" 
+};
 
 export default function ClientesPage() {
   const { role } = useAuth();
@@ -54,7 +66,10 @@ export default function ClientesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId: TENANT_ID, ...form }),
       });
-      if (!res.ok) throw new Error("Error al guardar el cliente.");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Error al guardar el cliente.");
+      }
       setIsModalOpen(false);
       setForm(emptyForm);
       fetchClientes();
@@ -97,7 +112,7 @@ export default function ClientesPage() {
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">ID</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Empresa / NIT</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contacto</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Dirección</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Ubicación Corp.</th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Drive</th>
               </tr>
             </thead>
@@ -113,7 +128,7 @@ export default function ClientesPage() {
                     <p className="text-sm text-gray-700">{c.contacto || "—"}</p>
                     {c.telefono && <p className="text-xs text-gray-400">{c.telefono}</p>}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{c.direccion || "—"}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{c.ciudad || "—"}, {c.departamento || "—"}</td>
                   <td className="px-6 py-4 text-right space-x-3">
                     {c.driveFolderId && (
                       <a href={`https://drive.google.com/drive/folders/${c.driveFolderId}`} target="_blank" rel="noopener noreferrer"
@@ -159,18 +174,33 @@ export default function ClientesPage() {
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">Ciudad</label>
+                  <input type="text" value={form.ciudad} onChange={e => setField("ciudad", e.target.value)} placeholder="Ej. Bogotá"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Departamento</label>
+                  <input type="text" value={form.departamento} onChange={e => setField("departamento", e.target.value)} placeholder="Ej. Cundinamarca"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Representante Legal</label>
+                  <input type="text" value={form.representanteLegal} onChange={e => setField("representanteLegal", e.target.value)} placeholder="Nombre completo"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                  <input type="email" value={form.email} onChange={e => setField("email", e.target.value)} placeholder="cliente@empresa.com"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Persona de Contacto</label>
+                  <input type="text" value={form.contacto} onChange={e => setField("contacto", e.target.value)} placeholder="Gerente / Administrador"
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Teléfono</label>
                   <input type="tel" value={form.telefono} onChange={e => setField("telefono", e.target.value)} placeholder="300 000 0000"
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Dirección del Sitio</label>
-                  <input type="text" value={form.direccion} onChange={e => setField("direccion", e.target.value)} placeholder="Cll 123 # 45-67, Bogotá"
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Persona de Contacto</label>
-                  <input type="text" value={form.contacto} onChange={e => setField("contacto", e.target.value)} placeholder="Nombre del administrador / gerente"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </div>
               </div>

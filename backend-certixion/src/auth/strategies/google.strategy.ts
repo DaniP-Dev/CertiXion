@@ -9,7 +9,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientID: process.env.CLIENT_ID || 'dummy_client_id',
       clientSecret: process.env.CLIENT_SECRET || 'dummy_secret',
       callbackURL: process.env.REDIRECT_URI || 'http://localhost:3000/auth/callback',
-      scope: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file'],
+      scope: [
+        'email', 
+        'profile', 
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/documents'
+      ],
     });
   }
 

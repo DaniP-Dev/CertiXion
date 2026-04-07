@@ -9,12 +9,10 @@ export class ClientesController {
   async createCliente(
     @Body('tenantId') tenantId: string,
     @Body('nombre') nombre: string,
-    @Body('nit') nit: string,
-    @Body('direccion') direccion: string,
-    @Body('contacto') contacto: string,
-    @Body('telefono') telefono: string,
+    @Body() detalles: any, // Tomamos todo lo demas en detalles
   ) {
-    return this.clientesService.createCliente(tenantId, nombre, { nit, direccion, contacto, telefono });
+    // Validar en el servicio. Le pasamos el objeto entero
+    return this.clientesService.createCliente(tenantId, nombre, detalles);
   }
 
   @Get()

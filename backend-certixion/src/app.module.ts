@@ -8,6 +8,9 @@ import { OrdenesModule } from './ordenes/ordenes.module';
 import { DatosCampoModule } from './datos-campo/datos-campo.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { AlcancesModule } from './alcances/alcances.module';
+import { ConfiguracionModule } from './configuracion/configuracion.module';
+import { PlantillasModule } from './plantillas/plantillas.module';
+import { EstacionesModule } from './estaciones/estaciones.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { AlcancesModule } from './alcances/alcances.module';
     DatosCampoModule,
     UsuariosModule,
     AlcancesModule,
+    ConfiguracionModule,
+    PlantillasModule,
+    EstacionesModule,
   ],
 })
 export class AppModule {}

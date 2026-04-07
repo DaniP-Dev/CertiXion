@@ -1,4 +1,4 @@
-"use client";
+     "use client";
 
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
@@ -13,8 +13,12 @@ const VENTANAS_HORARIAS = ["Mañana (6am - 12pm)", "Tarde (12pm - 6pm)", "Día c
 interface Cliente { id: string; nombre: string; direccion?: string; contacto?: string; telefono?: string; }
 interface Inspector { email: string; displayName: string; }
 interface Alcance { id: string; nombre: string; }
+interface Estacion {
+  id: string; clienteId: string; nombreEDS: string;
+  direccion?: string; ciudad?: string; departamento?: string;
+}
 interface Orden {
-  id: string; clienteId: string; clienteNombre?: string; descripcion?: string;
+  id: string; clienteId: string; clienteNombre?: string; estacionId?: string; estacionNombre?: string; edsNombre?: string; descripcion?: string;
   tipoInspeccion?: string; estado: string; driveFolderId?: string;
   fechaProgramada?: string; inspectorEmail?: string; createdAt: string;
   informeCampoLink?: string;
@@ -33,6 +37,7 @@ export default function OrdenesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [inspectores, setInspectores] = useState<Inspector[]>([]);
   const [alcances, setAlcances] = useState<Alcance[]>([]);
+  const [estaciones, setEstaciones] = useState<Estacion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,31 +46,42 @@ export default function OrdenesPage() {
   // Form state
   const [form, setForm] = useState({
     clienteId: "",
-    tipoInspeccion: "",
+    estacionId: "", 
+    itemId: "", 
+    tipoInspeccion: [] as string[], 
     descripcion: "",
-    direccion: "",
-    contacto: "",
-    telefono: "",
     fechaProgramada: "",
+    fechaSugerida: "", 
     inspectorEmail: "",
+    inspectorCelular: "",
+    inspectorCompetencia: "Técnica - ISO 17020",
+    inspectorAutorizacion: "Vigente",
     ventanaHoraria: "",
     observacionesLogisticas: "",
+    horarioEspecial: "", 
+    condiciones: "", 
+    solicitanteNombre: "", 
+    solicitanteCargo: "", 
+    resultadoValidacion: "La orden se acepta sin observaciones",
   });
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [ordenesRes, clientesRes, usuariosRes, alcancesRes] = await Promise.all([
+      const [ordenesRes, clientesRes, usuariosRes, alcancesRes, estacionesRes] = await Promise.all([
         fetch(`${BACKEND_URL}/ordenes?tenantId=${TENANT_ID}`),
         fetch(`${BACKEND_URL}/clientes?tenantId=${TENANT_ID}`),
         fetch(`${BACKEND_URL}/usuarios?tenantId=${TENANT_ID}`),
         fetch(`${BACKEND_URL}/alcances/${TENANT_ID}`),
+        fetch(`${BACKEND_URL}/estaciones?tenantId=${TENANT_ID}`),
       ]);
-      const [ordenesData, clientesData, usuariosData, alcancesData] = await Promise.all([
-        ordenesRes.json(), clientesRes.json(), usuariosRes.json(), alcancesRes.json(),
+      const [ordenesData, clientesData, usuariosData, alcancesData, estacionesData] = await Promise.all([
+        ordenesRes.json(), clientesRes.json(), usuariosRes.json(), alcancesRes.json(), estacionesRes.json()
       ]);
       setOrdenes(Array.isArray(ordenesData) ? ordenesData : []);
       setClientes(Array.isArray(clientesData) ? clientesData : []);
+      setEstaciones(Array.isArray(estacionesData) ? estacionesData : []);
+      // Filtrar inspectores y administradores
       setInspectores(Array.isArray(usuariosData)
         ? usuariosData.filter((u: any) => u.rol === "inspector" || u.rol === "admin")
         : []);
@@ -79,57 +95,81 @@ export default function OrdenesPage() {
 
   // Pre-load client info when client is selected
   const handleClienteChange = (clienteId: string) => {
-    const cliente = clientes.find(c => c.id === clienteId);
     setForm(prev => ({
       ...prev,
       clienteId,
-      direccion: cliente?.direccion || "",
-      contacto: cliente?.contacto || "",
-      telefono: cliente?.telefono || "",
+      estacionId: "", // reset station
     }));
   };
 
-  const setField = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const setField = (key: string, value: any) => setForm(prev => ({ ...prev, [key]: value }));
+
+  const toggleAlcance = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      tipoInspeccion: prev.tipoInspeccion.includes(id)
+        ? prev.tipoInspeccion.filter(t => t !== id)
+        : [...prev.tipoInspeccion, id]
+    }));
+  };
 
   const resetForm = () => {
     setForm({
       clienteId: "",
-      tipoInspeccion: "",
+      estacionId: "",
+      itemId: "",
+      tipoInspeccion: [],
       descripcion: "",
-      direccion: "",
-      contacto: "",
-      telefono: "",
       fechaProgramada: "",
+      fechaSugerida: "",
       inspectorEmail: "",
+      inspectorCelular: "",
+      inspectorCompetencia: "Técnica - ISO 17020",
+      inspectorAutorizacion: "Vigente",
       ventanaHoraria: "",
       observacionesLogisticas: "",
+      horarioEspecial: "",
+      condiciones: "",
+      solicitanteNombre: "",
+      solicitanteCargo: "",
+      resultadoValidacion: "La orden se acepta sin observaciones",
     });
   };
 
   const handleCrearOrden = async () => {
-    if (!form.clienteId || !form.tipoInspeccion || !form.fechaProgramada || !form.inspectorEmail) {
-      setErrorMsg("Por favor completa los campos obligatorios (Cliente, Tipo, Fecha e Inspector).");
+    if (!form.clienteId || !form.estacionId || form.tipoInspeccion.length === 0 || !form.fechaProgramada || !form.inspectorEmail) {
+      setErrorMsg("Por favor completa los campos obligatorios (*). Debe seleccionar al menos un tipo de inspección.");
       return;
     }
     setIsSaving(true);
     setErrorMsg(null);
     try {
-      // Filtrar campos vacíos antes de enviar
-      const formData = Object.fromEntries(
-        Object.entries(form).filter(([_, value]) => value !== "")
-      );
-      
-      const res = await fetch(`${BACKEND_URL}/ordenes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId: TENANT_ID, ...formData }),
+      const creationPromises = form.tipoInspeccion.map(tipo => {
+        const formData = {
+          ...form,
+          tipoInspeccion: tipo,
+        };
+        
+        const cleanData = Object.fromEntries(
+          Object.entries(formData).filter(([_, value]) => value !== "" && (!Array.isArray(value) || value.length > 0))
+        );
+
+        return fetch(`${BACKEND_URL}/ordenes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenantId: TENANT_ID, ...cleanData }),
+        });
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData?.message || `Error ${res.status}: ${res.statusText}`);
+
+      const responses = await Promise.all(creationPromises);
+      
+      for (const res of responses) {
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData?.message || `Error ${res.status}: ${res.statusText}`);
+        }
       }
-      const result = await res.json();
-      console.log('Orden creada:', result);
+
       resetForm();
       setErrorMsg(null);
       setIsModalOpen(false);
@@ -148,7 +188,6 @@ export default function OrdenesPage() {
     ? ordenes.filter(o => o.clienteId === filterCliente)
     : ordenes;
 
-  // Group into { [clienteNombre]: Orden[] }
   const grouped = filteredOrdenes.reduce<Record<string, { nombre: string; ordenes: Orden[] }>>((acc, orden) => {
     const key = orden.clienteId;
     const nombre = orden.clienteNombre || orden.clienteId;
@@ -172,7 +211,6 @@ export default function OrdenesPage() {
         )}
       </div>
 
-      {/* Filtro por cliente */}
       {clientes.length > 0 && (
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-600">Filtrar por cliente:</label>
@@ -200,7 +238,6 @@ export default function OrdenesPage() {
         <div className="space-y-8">
           {Object.entries(grouped).map(([clienteId, { nombre, ordenes: grupoOrdenes }]) => (
             <div key={clienteId}>
-              {/* Encabezado de grupo */}
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
                   {nombre.charAt(0).toUpperCase()}
@@ -211,19 +248,21 @@ export default function OrdenesPage() {
                 </div>
               </div>
 
-              {/* Cards de órdenes */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {grupoOrdenes.map(orden => (
                   <div key={orden.id} className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-all">
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <span className="font-mono text-xs font-bold text-blue-600">{orden.id}</span>
+                        <span className="font-mono text-xs font-bold text-blue-600">
+                          {orden.id} {(orden as any).itemId && <span className="text-gray-400 ml-1">({(orden as any).itemId})</span>}
+                        </span>
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColors[orden.estado] || "bg-gray-100 text-gray-700"}`}>
                           {orden.estado}
                         </span>
                       </div>
-                      {orden.tipoInspeccion && <p className="text-sm font-semibold text-blue-700">{orden.tipoInspeccion}</p>}
-                      {orden.descripcion && <p className="mt-1 text-sm text-gray-500">{orden.descripcion}</p>}
+                      <p className="text-sm font-bold text-gray-900 uppercase">{(orden as any).edsNombre || "EDS no especificada"}</p>
+                      {orden.tipoInspeccion && <p className="text-xs font-semibold text-blue-700 mt-1">{orden.tipoInspeccion}</p>}
+                      {orden.descripcion && <p className="mt-2 text-sm text-gray-500">{orden.descripcion}</p>}
                       {orden.fechaProgramada && (
                         <p className="mt-2 text-xs text-gray-400">
                           📅 {new Date(orden.fechaProgramada + "T00:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
@@ -276,8 +315,7 @@ export default function OrdenesPage() {
 
               {/* SECCIÓN 1: Cliente */}
               <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Identificación del Cliente</h4>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Cliente <span className="text-red-500">*</span></label>
                     <select value={form.clienteId} onChange={(e) => handleClienteChange(e.target.value)}
@@ -286,60 +324,43 @@ export default function OrdenesPage() {
                       {clientes.map(c => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}
                     </select>
                   </div>
-                </div>
-              </section>
-
-              {/* SECCIÓN 2: Inspección */}
-              <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Identificación de la Inspección</h4>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo de Inspección <span className="text-red-500">*</span></label>
-                    <select value={form.tipoInspeccion} onChange={(e) => setField("tipoInspeccion", e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                      <option value="">— Seleccionar tipo —</option>
-                      {alcances.map(a => <option key={a.id} value={a.id}>{a.id} · {a.nombre}</option>)}
+                    <label className="block text-sm font-medium text-gray-700">Estación (Sede) <span className="text-red-500">*</span></label>
+                    <select value={form.estacionId} onChange={(e) => setField("estacionId", e.target.value)} disabled={!form.clienteId}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50">
+                      <option value="">{form.clienteId ? "— Seleccionar estación —" : "— Primero selecciona un cliente —"}</option>
+                      {estaciones.filter(e => e.clienteId === form.clienteId).map(e => <option key={e.id} value={e.id}>{e.nombreEDS} ({e.ciudad || 'Sin ciudad'})</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Alcance / Descripción</label>
-                    <input type="text" value={form.descripcion} onChange={(e) => setField("descripcion", e.target.value)}
-                      placeholder="Ej. Inspección anual estación Norte"
+                    <label className="block text-sm font-medium text-gray-700">ID del Ítem (Tanque/Línea)</label>
+                    <input type="text" value={form.itemId} onChange={(e) => setField("itemId", e.target.value)}
+                      placeholder="Ej. T1, L2, L1T3"
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   </div>
                 </div>
               </section>
 
-              {/* SECCIÓN 3: Ubicación */}
+              {/* SECCIÓN 2: Tipos de Inspección */}
               <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Ubicación y Contacto</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Dirección del Sitio</label>
-                    <input type="text" value={form.direccion} onChange={(e) => setField("direccion", e.target.value)}
-                      placeholder="Cll 123 # 45-67, Bogotá"
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Persona de Contacto</label>
-                      <input type="text" value={form.contacto} onChange={(e) => setField("contacto", e.target.value)}
-                        placeholder="Nombre del contacto"
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Teléfono</label>
-                      <input type="tel" value={form.telefono} onChange={(e) => setField("telefono", e.target.value)}
-                        placeholder="300 000 0000"
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
-                  </div>
+                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Tipos de Inspección <span className="text-red-500">*</span></h4>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {alcances.map(a => (
+                    <label key={a.id} className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${form.tipoInspeccion.includes(a.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={form.tipoInspeccion.includes(a.id)} onChange={() => toggleAlcance(a.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{a.nombre}</p>
+                        <p className="text-xs text-gray-500">{a.id}</p>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </section>
 
-              {/* SECCIÓN 4: Programación */}
+              {/* SECCIÓN 3: Programación e Inspector */}
               <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Programación y Logística</h4>
+                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Programación e Inspector</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Fecha Programada <span className="text-red-500">*</span></label>
@@ -354,19 +375,71 @@ export default function OrdenesPage() {
                       {inspectores.map(i => <option key={i.email} value={i.email}>{i.displayName || i.email}</option>)}
                     </select>
                   </div>
+                  {/* Nuevos Datos del Inspector para la Plantilla */}
+                  {form.inspectorEmail && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Celular del Inspector</label>
+                        <input type="tel" value={form.inspectorCelular} onChange={(e) => setField("inspectorCelular", e.target.value)}
+                          placeholder="300 000 0000"
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Competencia Validada</label>
+                        <input type="text" value={form.inspectorCompetencia} onChange={(e) => setField("inspectorCompetencia", e.target.value)}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Autorización Vigente</label>
+                        <input type="text" value={form.inspectorAutorizacion} onChange={(e) => setField("inspectorAutorizacion", e.target.value)}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+
+              {/* SECCIÓN 4: Validación y Otros */}
+              <section>
+                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Validación de la Orden</h4>
+                <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Ventana Horaria</label>
-                    <select value={form.ventanaHoraria} onChange={(e) => setField("ventanaHoraria", e.target.value)}
+                    <label className="block text-sm font-medium text-gray-700">Resultado de Validación <span className="text-red-500">*</span></label>
+                    <select value={form.resultadoValidacion} onChange={(e) => setField("resultadoValidacion", e.target.value)}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                      <option value="">— Seleccionar ventana —</option>
-                      {VENTANAS_HORARIAS.map(v => <option key={v} value={v}>{v}</option>)}
+                      <option value="La orden se acepta sin observaciones">La orden se acepta sin observaciones</option>
+                      <option value="La orden se acepta con condiciones especiales (anexar soporte)">La orden se acepta con condiciones especiales (anexar soporte)</option>
+                      <option value="La orden se rechaza por estar fuera del alcance o por falta de disponibilidad técnica">La orden se rechaza por estar fuera del alcance o por falta de disponibilidad técnica</option>
                     </select>
                   </div>
+                  <div className="rounded-lg bg-blue-50 p-4 border border-blue-100 flex items-start gap-3">
+                    <span className="text-xl">📍</span>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Ubicación y Contacto Automático</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        La dirección, ciudad y datos de contacto se cargarán automáticamente desde el perfil de la <strong>Estación (Sede)</strong> que elegiste arriba. Si necesitas modificarlos, edita el perfil de la EDS en el directorio.
+                      </p>
+                    </div>
+                  </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Observaciones Logísticas</label>
-                    <input type="text" value={form.observacionesLogisticas} onChange={(e) => setField("observacionesLogisticas", e.target.value)}
-                      placeholder="Ej. Acceso por portería 2"
+                    <label className="block text-sm font-medium text-gray-700">Observaciones / Descripción</label>
+                    <textarea value={form.descripcion} onChange={(e) => setField("descripcion", e.target.value)}
+                      rows={2} placeholder="Detalles u observaciones adicionales"
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Solicitante</label>
+                      <input type="text" value={form.solicitanteNombre} onChange={(e) => setField("solicitanteNombre", e.target.value)}
+                        placeholder="Quien solicita"
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Cargo Solicitante</label>
+                      <input type="text" value={form.solicitanteCargo} onChange={(e) => setField("solicitanteCargo", e.target.value)}
+                        placeholder="Ej. Gerente"
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
                   </div>
                 </div>
               </section>

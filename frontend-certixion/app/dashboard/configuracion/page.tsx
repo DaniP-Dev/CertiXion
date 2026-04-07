@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 import { BACKEND_URL, TENANT_ID } from "@/lib/api";
+import Link from "next/link";
 
 export default function ConfiguracionPage() {
   const { role } = useAuth();
@@ -18,16 +19,13 @@ export default function ConfiguracionPage() {
   });
 
   const handleResetDrive = async () => {
-    if (!confirm("¿Estás seguro de que deseas reiniciar el mapeo de carpetas? Esto hará que CertiXion cree nuevas carpetas (01_..., 02_...) en tu Drive la próxima vez que realices una acción.")) {
-      return;
-    }
     setIsResetting(true);
     setMessage(null);
     try {
-      const res = await fetch(`${BACKEND_URL}/configuracion/reset-drive/${TENANT_ID}`, { method: "POST" });
+      const res = await fetch(`${BACKEND_URL}/configuracion/sync-drive/${TENANT_ID}`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al reiniciar");
-      setMessage({ text: "Mapeo reiniciado. Las carpetas se regenerarán al crear un cliente o alcance.", type: "success" });
+      if (!res.ok) throw new Error(data.message || "Error al sincronizar");
+      setMessage({ text: "Estructura de Drive sincronizada exitosamente.", type: "success" });
     } catch (e: any) {
       setMessage({ text: e.message, type: "error" });
     } finally {
@@ -64,9 +62,17 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configuración del Sistema</h1>
-        <p className="text-sm text-gray-500">Personaliza la identidad de tu empresa y gestiona la integración con Drive.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Configuración del Sistema</h1>
+          <p className="text-sm text-gray-500">Personaliza la identidad de tu empresa y gestiona la integración con Drive.</p>
+        </div>
+        <Link 
+          href="/dashboard/configuracion/plantillas" 
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-2"
+        >
+          📄 Gestión de Plantillas
+        </Link>
       </div>
 
       {message && (
@@ -111,24 +117,28 @@ export default function ConfiguracionPage() {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
         <button onClick={handleSaveSettings} disabled={isSaving}
           className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all disabled:opacity-50">
           {isSaving ? "Guardando..." : "Guardar Cambios"}
         </button>
       </div>
 
-      {/* Sección Peligrosa: Reset Drive */}
-      <div className="rounded-xl border border-red-100 bg-red-50/30 p-6 mt-12">
-        <h2 className="text-lg font-bold text-red-900 mb-2 flex items-center gap-2">⚠️ Zona de Peligro</h2>
-        <p className="text-sm text-red-600 mb-6 line-clamp-2">
-          Si cambiaste de cuenta de Google Drive o deseas regenerar la estructura de carpetas (01_Alcance, 02_Clientes), puedes reiniciar el mapeo. 
-          CertiXion volverá a crear las carpetas en tu Drive la próxima vez que crees un cliente o servicio.
-        </p>
-        <button onClick={handleResetDrive} disabled={isResetting}
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-all disabled:opacity-50">
-          {isResetting ? "Reiniciando..." : "Reiniciar Mapeo de Carpetas"}
-        </button>
+      <div className="pt-8 border-t border-gray-100 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-900">Sincronización de Drive</h3>
+          <p className="text-xs text-gray-500">¿Faltan carpetas? El sistema las detectará y vinculará automáticamente. Si los permisos caducan, debes volver a autorizar la cuenta.</p>
+        </div>
+        <div className="flex gap-4">
+          <a href={`${BACKEND_URL}/auth/google`} target="_blank" rel="noopener noreferrer"
+             className="text-sm font-medium rounded bg-red-50 text-red-600 border border-red-200 px-4 py-2 hover:bg-red-100 transition-colors">
+            🔑 Autorizar Google Drive
+          </a>
+          <button onClick={handleResetDrive} disabled={isResetting}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors px-4 py-2">
+            {isResetting ? "Sincronizando..." : "Sincronizar Estructura"}
+          </button>
+        </div>
       </div>
     </div>
   );

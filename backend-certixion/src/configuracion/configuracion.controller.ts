@@ -5,9 +5,9 @@ import { ConfiguracionService } from './configuracion.service';
 export class ConfiguracionController {
   constructor(private readonly configuracionService: ConfiguracionService) {}
 
-  @Post('reset-drive/:tenantId')
-  async resetDrive(@Param('tenantId') tenantId: string) {
-    return this.configuracionService.resetDriveMapping(tenantId);
+  @Post('sync-drive/:tenantId')
+  async syncDrive(@Param('tenantId') tenantId: string) {
+    return this.configuracionService.syncDriveStructure(tenantId);
   }
 
   @Patch(':tenantId')

@@ -21,49 +21,11 @@ export class AlcancesService {
   ) {}
 
   /**
-   * Obtiene la estructura raíz de "Alcances" para el tenant.
-   * Si no existe, la crea.
+   * Obtiene la estructura raíz de "Alcances" para el tenant de forma idempotente.
    */
   private async getRootFolderId(tenantId: string): Promise<string> {
-    const db = this.firebaseService.getFirestore();
-    const tenantRef = db.collection('tenants').doc(tenantId);
-    const tenantDoc = await tenantRef.get();
-    
-    if (!tenantDoc.exists) throw new NotFoundException('Tenant no encontrado');
-    
-    const data = tenantDoc.data();
-    let procedimientosFolderId = data?.procedimientosFolderId;
-
-    // Verificar si la carpeta guardada aún existe y NO está en la papelera
-    if (procedimientosFolderId) {
-      try {
-        const drive = await this.driveService.getDriveClient(tenantId);
-        const folder = await drive.files.get({
-          fileId: procedimientosFolderId,
-          fields: 'id, trashed'
-        });
-        if (!folder.data.trashed) {
-          return procedimientosFolderId;
-        }
-        console.log('⚠️ La carpeta de Alcances está en la papelera. Re-creando...');
-      } catch (e) {
-        console.log('⚠️ No se pudo acceder a la carpeta de Alcances guardada. Re-creando...');
-      }
-    }
-
-    // 1. Asegurar que existe la carpeta raíz "CERTIXION"
-    let certixionFolderId = data?.certixionFolderId;
-    if (!certixionFolderId) {
-      console.log('📁 Creando carpeta raíz CERTIXION...');
-      certixionFolderId = await this.driveService.createFolder(tenantId, 'CERTIXION');
-      await tenantRef.update({ certixionFolderId });
-    }
-
-    // 2. Asegurar que existe la carpeta "Alcances" dentro de "CERTIXION"
-    const rootId = await this.driveService.createFolder(tenantId, 'Alcances', certixionFolderId);
-    
-    await tenantRef.update({ procedimientosFolderId: rootId });
-    return rootId;
+    const { procedimientosFolderId } = await this.driveService.ensureRootStructure(tenantId);
+    return procedimientosFolderId;
   }
 
   async getAlcances(tenantId: string): Promise<Alcance[]> {
