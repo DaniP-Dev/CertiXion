@@ -14,5 +14,9 @@
         "laravel-vite-plugin": "^3.1",
         "tailwindcss": "^4.0.7",
         "vite": "^8.0.0"
+    },
+    "devDependencies": {
+        "@emnapi/core": "^1.10.0",
+        "@emnapi/runtime": "^1.10.0"
     }
 }
